@@ -1,9 +1,25 @@
 import json
 from datetime import datetime
+from pathlib import Path
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import (QWidget, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QCheckBox, QTextEdit, QSizePolicy, QHBoxLayout, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QWidget, 
+    QLineEdit, 
+    QSpinBox, 
+    QDoubleSpinBox, 
+    QComboBox, 
+    QCheckBox, 
+    QPushButton, 
+    QTextEdit, 
+    QSizePolicy, 
+    QHBoxLayout, 
+    QVBoxLayout, 
+    QFileDialog
+    )
 from PySide6.QtGui import QTextOption
+
+from PySubtitle.Providers.ProviderAction import ProviderAction
 
 MULTILINE_OPTION = 'multiline'
 
@@ -207,6 +223,66 @@ class DropdownOptionWidget(OptionWidget):
     def SetVisible(self, is_visible : bool):
         self.combo_box.setVisible(is_visible)
 
+class ButtonOptionWidget(OptionWidget):
+    """ A widget that disaplays a button to allow execution of a function """
+    def __init__(self, key, text, callback):
+        super(ButtonOptionWidget, self).__init__(key, None)
+        self.text = text
+        self.callback = callback
+        self.button = QPushButton(text, self)
+        self.button.clicked.connect(lambda: self._execute_callback())
+
+    def GetValue(self):
+        return None
+    
+    def SetValue(self, value):
+        pass
+
+    def SetEnabled(self, enabled : bool):
+        self.button.setEnabled(enabled)
+
+    def SetVisible(self, is_visible : bool):
+        self.button.setVisible(is_visible)
+    
+    def _execute_callback(self):
+        self.callback()
+        self.contentChanged.emit()
+
+class FileOptionWidget(OptionWidget):
+    """ A widget that allows the user to select a file """
+    def __init__(self, key, initial_value, tooltip = None):
+        super(FileOptionWidget, self).__init__(key, initial_value, tooltip=tooltip)
+        self.initial_path = initial_value[0] if isinstance(initial_value, tuple) else Path(initial_value)
+        self.filter = initial_value[1] if isinstance(initial_value, tuple) else "All Files (*)" 
+        self.layout = QHBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.text_field = QLineEdit(self)
+        self.text_field.setText(str(self.initial_path))
+        self.text_field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.layout.addWidget(self.text_field)
+        self.button = QPushButton('Browse', self)
+        self.button.clicked.connect(self.Browse)
+        self.layout.addWidget(self.button)
+
+    def GetValue(self):
+        return self.text_field.text()
+    
+    def SetValue(self, value):
+        self.text_field.setText(value)
+
+    def Browse(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", dir = self.text_field.text(), filter = self.filter)
+        if file_path:
+            self.text_field.setText(file_path)
+
+    def SetEnabled(self, enabled : bool):
+        self.text_field.setEnabled(enabled)
+        self.button.setEnabled(enabled)
+
+    def SetVisible(self, is_visible : bool):
+        self.text_field.setVisible(is_visible)
+        self.button.setVisible(is_visible)
+
 def CreateOptionWidget(key, initial_value, key_type, tooltip = None) -> OptionWidget:
     # Helper function to create an OptionWidget based on the specified type
     if isinstance(key_type, list):
@@ -221,5 +297,9 @@ def CreateOptionWidget(key, initial_value, key_type, tooltip = None) -> OptionWi
         return FloatOptionWidget(key, initial_value, tooltip=tooltip)
     elif key_type == bool:
         return CheckboxOptionWidget(key, initial_value, tooltip=tooltip)
+    elif key_type == Path:
+        return FileOptionWidget(key, initial_value, tooltip=tooltip)
+    elif isinstance(key_type, ProviderAction):
+        return ButtonOptionWidget(key, text=tooltip, callback=key_type)
     else:
-        raise ValueError('Unsupported option type: ' + str(type(initial_value)))
+        raise ValueError('Unsupported option type: ' + str(type(key_type)))
