@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     )
 from PySide6.QtGui import QTextOption
 
-from PySubtitle.Providers.ProviderAction import ProviderAction
+from PySubtitle.ProviderAction import ProviderAction
 
 MULTILINE_OPTION = 'multiline'
 

@@ -3,9 +3,6 @@ from copy import deepcopy
 import logging
 import os
 
-from PySubtitle.Providers.ProviderAction import ProviderAction
-from PySubtitle.SubtitleError import ProviderError
-
 try:
     import ollama
     import subprocess
@@ -16,7 +13,10 @@ try:
     from PySubtitle.TranslationClient import TranslationClient
     from PySubtitle.TranslationParser import TranslationParser
     from PySubtitle.TranslationProvider import TranslationProvider
+    from PySubtitle.ProviderAction import ProviderAction
+    from PySubtitle.SubtitleError import ProviderError
 
+    from PySubtitle.Providers.Ollama.OllamaClient import OllamaClient
 
     class Provider_Ollama(TranslationProvider):
         name = "Ollama"
@@ -47,6 +47,9 @@ try:
             return self.settings.get('ollama_path')
 
         def GetTranslationClient(self, settings : dict) -> TranslationClient:
+            if not self.ollama_running:
+                self.StartServer()
+
             client_settings : dict = deepcopy(self.settings)
             client_settings.update(settings)
             client_settings.update({
@@ -54,7 +57,7 @@ try:
                 'supports_system_messages': False,
                 'supports_system_prompt': True
                 })
-            raise NotImplementedError("OllamaClient not implemented")
+            return OllamaClient(client_settings)
         
         def GetAvailableModels(self) -> list[str]:
             if not self.ollama_models:
