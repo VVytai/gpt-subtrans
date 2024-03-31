@@ -23,7 +23,7 @@ try:
 
         information = """
         <p>Use a locally hosted AI model as a translator with <a href="https://ollama.com/">Ollama</a>.</p>
-        <p>Ollama must be installed separately.</p>
+        <p>Ollama must be installed separately, along with the <a href="https://ollama.com/library">ollama model library</a> you want to use.</p>
         """
 
         information_noserver = """<p>The Ollama server is not running. Start the server manually or provide the path to the executable.</p>"""
