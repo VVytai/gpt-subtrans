@@ -54,8 +54,8 @@ try:
             client_settings.update(settings)
             client_settings.update({
                 'supports_conversation': True,
-                'supports_system_messages': True,
-                'supports_system_prompt': True
+                'supports_system_messages': False,
+                'supports_system_prompt': False
                 })
             return OllamaClient(client_settings)
         
