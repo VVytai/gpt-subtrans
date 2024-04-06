@@ -21,6 +21,8 @@ class SubtitleListModel(QAbstractProxyModel):
         if self.viewmodel:
             self.setSourceModel(viewmodel)
             viewmodel.layoutChanged.connect(self._update_visible_batches)
+            viewmodel.rowsInserted.connect(self._update_visible_batches)
+            viewmodel.rowsRemoved.connect(self._update_visible_batches)
 
     def ShowSelection(self, selection : ProjectSelection):
         if selection.selected_batches:
@@ -50,9 +52,9 @@ class SubtitleListModel(QAbstractProxyModel):
                     break
                 
                 if (scene_item.number, batch_item.number) in batch_numbers:
-                    lines = batch_item.lines
-                    visible_lines = [ (scene_item.number, batch_item.number, line) for line in lines.keys() ]
-                    visible.extend(visible_lines)
+                    for line_index in range(0, batch_item.rowCount()):
+                        line_item : LineItem = batch_item.child(line_index, 0)
+                        visible.append((scene_item.number, batch_item.number, line_item.number))
         
         self.visible = visible
         self.visible_row_map = { item[2] : row for row, item in enumerate(self.visible) }
@@ -107,23 +109,35 @@ class SubtitleListModel(QAbstractProxyModel):
 
         scene_number, batch_number, line_number = self.visible[row]
 
-        scene_item = self.viewmodel.model.get(scene_number)
-        if not scene_item:
+        found_scene_item : SceneItem = None
+
+        for scene_index in range(0, self.viewmodel.rowCount()):
+            scene_item : SceneItem = self.viewmodel.itemFromIndex(self.viewmodel.index(scene_index, 0))
+            if scene_item.number == scene_number:
+                found_scene_item = scene_item
+                break
+
+        if not found_scene_item:
             logging.debug(f"Invalid scene number in SubtitleListModel: {scene_number}")
             return QModelIndex()
 
-        batches = scene_item.batches
-        if not batch_number in batches.keys():
+        found_batch_item : BatchItem = None
+
+        for batch_index in range(0, scene_item.rowCount()):
+            batch_item : BatchItem = scene_item.child(batch_index, 0)
+            if batch_item.number == batch_number:
+                found_batch_item = batch_item
+                break
+
+        if not found_batch_item:
             logging.debug(f"Invalid batch number in SubtitleListModel ({scene_number},{batch_number})")
             return QModelIndex()
 
-        lines = batches[batch_number].lines
-
-        if line_number not in lines:
+        if line_number not in found_batch_item.lines:
             logging.debug(f"Visible subtitles list has invalid line number ({scene_number},{batch_number},{line_number})")
             return QModelIndex()
 
-        line : LineItem = lines[line_number]
+        line : LineItem = found_batch_item.lines[line_number]
 
         return self.createIndex(row, column, line)
 

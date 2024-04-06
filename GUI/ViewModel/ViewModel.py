@@ -209,8 +209,6 @@ class ProjectViewModel(QStandardItemModel):
         self.model[scene.number] = scene_item
         self.endInsertRows()
 
-        self.getRootItem().emitDataChanged()
-
     def UpdateScene(self, scene_number, scene_update : dict):
         logging.debug(f"Updating scene {scene_number}")
         scene_item : SceneItem = self.model.get(scene_number)
@@ -229,7 +227,7 @@ class ProjectViewModel(QStandardItemModel):
         scene_index = self.indexFromItem(scene_item)
         self.setData(scene_index, scene_item, Qt.ItemDataRole.UserRole)
 
-        return True
+        scene_item.emitDataChanged()
 
     def RemoveScene(self, scene_number):
         logging.debug(f"Removing scene {scene_number}")
@@ -263,10 +261,9 @@ class ProjectViewModel(QStandardItemModel):
 
         self.beginInsertRows(scene_index, insert_row, insert_row)
         scene_item.AddBatchItem(batch_item)
-        scene_item.Remap()
         self.endInsertRows()
 
-        scene_item.emitDataChanged()
+        self.setData(scene_index, scene_item, Qt.ItemDataRole.UserRole)
 
     def ReplaceBatch(self, batch):
         logging.debug(f"Replacing batch ({batch.scene}, {batch.number})")
@@ -288,7 +285,7 @@ class ProjectViewModel(QStandardItemModel):
         self.endInsertRows()
 
         scene_item.batches[batch.number] = batch_item
-        scene_item.emitDataChanged()
+        self.setData(scene_index, scene_item, Qt.ItemDataRole.UserRole)
 
     def UpdateBatch(self, scene_number, batch_number, batch_update : dict):
         logging.debug(f"Updating batch ({scene_number}, {batch_number})")
@@ -298,8 +295,7 @@ class ProjectViewModel(QStandardItemModel):
         scene_item : SceneItem = self.model.get(scene_number)
         batch_item : BatchItem = scene_item.batches[batch_number] if scene_number else None
         if not batch_item:
-            logging.error(f"Model update for unknown batch, scene {scene_number} batch {batch_number}")
-            return False
+            raise ViewModelError(f"Model update for unknown batch, scene {scene_number} batch {batch_number}")
 
         batch_item.Update(batch_update)
 
@@ -312,25 +308,39 @@ class ProjectViewModel(QStandardItemModel):
         batch_index = self.indexFromItem(batch_item)
         self.setData(batch_index, batch_item, Qt.ItemDataRole.UserRole)
 
-        scene_item.emitDataChanged()
-        return True
+        batch_item.emitDataChanged()
 
     def RemoveBatch(self, scene_number, batch_number):
         logging.debug(f"Removing batch ({scene_number}, {batch_number})")
         scene_item : SceneItem = self.model.get(scene_number)
         if batch_number not in scene_item.batches.keys():
             raise ViewModelError(f"Scene {scene_number} batch {batch_number} does not exist")
-        
-        scene_index = self.indexFromItem(scene_item)
 
+        remove_row = None        
         for i in range(0, scene_item.rowCount()):
             batch_item : BatchItem = scene_item.child(i, 0)
             if batch_item.number == batch_number:
-                self.beginRemoveRows(scene_index, i, i)
-                scene_item.removeRow(i)
-                self.endRemoveRows()
-                logging.debug(f"Removed row {i} from scene {scene_item.number}, rowCount={scene_item.rowCount()}")
-                break
+                remove_row = i
+                del scene_item.batches[batch_number]
+
+            elif batch_item.number > batch_number:
+                new_batch_number = batch_item.number - 1
+                del scene_item.batches[batch_item.number]
+                scene_item.batches[new_batch_number] = batch_item
+                batch_item.number = new_batch_number
+
+        if remove_row is None:
+            raise ViewModelError(f"Scene {scene_number} batch {batch_number} not found")
+
+        scene_item.removeRow(remove_row)
+
+        for i in range(0, scene_item.rowCount()):
+            batch_item : BatchItem = scene_item.child(i, 0)
+            batch_index = self.indexFromItem(batch_item)
+            self.setData(batch_index, batch_item, Qt.ItemDataRole.UserRole)
+        
+        scene_index = self.indexFromItem(scene_item)
+        self.setData(scene_index, scene_item, Qt.ItemDataRole.UserRole)
 
     #############################################################################
 
@@ -341,11 +351,16 @@ class ProjectViewModel(QStandardItemModel):
         logging.debug(f"Adding line ({scene_number}, {batch_number}, {line.number})")
 
         scene_item : SceneItem = self.model.get(scene_number)
-        batch_item : BatchItem = scene_item.batches[batch_number]
+        if not scene_item:
+            raise ViewModelError(f"Scene {scene_number} not found")
+
+        batch_item : BatchItem = scene_item.batches.get(batch_number)
+        if not batch_item:
+            raise ViewModelError(f"Batch {batch_number} not found in scene {scene_number}")
+
         if line.number in batch_item.lines.keys():
             raise ViewModelError(f"Line {line.number} already exists in {scene_number} batch {batch_number}")
 
-        self.beginInsertRows(self.indexFromItem(batch_item), line.number - 1, line.number - 1)
         batch_item.AddLineItem(line.number, {
                 'scene': scene_number,
                 'batch': batch_number,
@@ -355,8 +370,8 @@ class ProjectViewModel(QStandardItemModel):
                 'gap': None,
                 'text': line.text
             })
-
-        self.endInsertRows()
+        
+        batch_item.emitDataChanged()
 
     def UpdateLine(self, scene_number, batch_number, line_number, line_update : dict):
         logging.debug(f"Updating line ({scene_number}, {batch_number}, {line_number})")

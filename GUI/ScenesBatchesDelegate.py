@@ -1,3 +1,4 @@
+import logging
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QStyleOptionViewItem, QStyledItemDelegate, QWidget
 from PySide6.QtCore import QModelIndex, Qt, QPoint
@@ -11,8 +12,8 @@ class ScenesBatchesDelegate(QStyledItemDelegate):
         widget = index.data(role=Qt.ItemDataRole.DisplayRole)
 
         if widget is None:
-            super().paint(painter, option, index)  # Only call the base class if there's no widget
-            return
+            logging.debug(f"No widget found for index {index.row()}, {index.column()}")
+            return super().paint(painter, option, index)  # Only call the base class if there's no widget
 
         self.initStyleOption(option, index)
 
@@ -25,9 +26,10 @@ class ScenesBatchesDelegate(QStyledItemDelegate):
 
     def sizeHint(self, option, index):
         widget = index.data(role=Qt.ItemDataRole.DisplayRole)
-        if widget:
-            self.initStyleOption(option, index)
-            widget.setGeometry(option.rect)
-            return widget.sizeHint()
-        else:
+        if widget is None:
+            logging.debug(f"No widget found for index {index.row()}, {index.column()}")
             return super().sizeHint(option, index)
+
+        self.initStyleOption(option, index)
+        widget.setGeometry(option.rect)
+        return widget.sizeHint()

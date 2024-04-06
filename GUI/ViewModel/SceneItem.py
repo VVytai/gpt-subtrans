@@ -85,8 +85,6 @@ class SceneItem(ViewModelItem):
             self.appendRow(batch_item)
         else:
             self.insertRow(batch_item.number - 1, batch_item)
-            for i in range(0, self.rowCount()):
-                self.child(i, 0).number = i
 
         self.Remap()
     
@@ -99,7 +97,12 @@ class SceneItem(ViewModelItem):
 
     def Remap(self):
         """ Rebuild the batch number map """
-        batch_items = [ self.child(i, 0) for i in range(0, self.rowCount()) ]
+        batch_items = []
+        for i in range(0, self.rowCount()):
+            item = self.child(i, 0)
+            item.number = i + 1
+            batch_items.append(item)
+
         self.batches = { item.number: item for item in batch_items }
 
     def GetContent(self):

@@ -5,6 +5,8 @@ from GUI.ProjectDataModel import ProjectDataModel
 from GUI.ProjectSelection import ProjectSelection
 from GUI.ProjectToolbar import ProjectToolbar
 
+from GUI.Widgets.DummyContentView import DummyContentView
+from GUI.Widgets.DummyScenesView import DummyScenesView
 from GUI.Widgets.ScenesView import ScenesView
 from GUI.Widgets.ContentView import ContentView
 from GUI.Widgets.ProjectSettings import ProjectSettings
@@ -26,9 +28,16 @@ class ModelView(QWidget):
 
         # Scenes & Batches Panel
         self.scenes_view = ScenesView(self)
+        # self.scenes_view = DummyScenesView(self)
+        self.scenes_view.onSelection.connect(self._items_selected)
+        self.scenes_view.onBatchEdited.connect(self._on_batch_edited)
+        self.scenes_view.onSceneEdited.connect(self._on_scene_edited)
 
         # Main Content Area
-        self.content_view = ContentView(self)
+        # self.content_view = ContentView(self)
+        self.content_view = DummyContentView(self)
+        self.content_view.onSelection.connect(self._lines_selected)
+        self.content_view.actionRequested.connect(self.actionRequested)
 
         # Project Settings
         self.project_settings = ProjectSettings()
@@ -46,14 +55,6 @@ class ModelView(QWidget):
 
         layout.addWidget(splitter)
         self.setLayout(layout)
-
-        self.scenes_view.onSelection.connect(self._items_selected)
-        self.content_view.onSelection.connect(self._lines_selected)
-
-        self.content_view.actionRequested.connect(self.actionRequested)
-
-        self.scenes_view.onBatchEdited.connect(self._on_batch_edited)
-        self.scenes_view.onSceneEdited.connect(self._on_scene_edited)
 
     def SetDataModel(self, datamodel : ProjectDataModel):
         self.SetViewModel(datamodel.viewmodel)

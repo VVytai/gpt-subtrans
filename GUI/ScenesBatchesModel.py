@@ -1,3 +1,4 @@
+import logging
 from PySide6.QtCore import QSortFilterProxyModel, QModelIndex, Qt
 
 from GUI.ViewModel.BatchItem import BatchItem
@@ -9,6 +10,13 @@ class ScenesBatchesModel(QSortFilterProxyModel):
         super().__init__(parent)
         if viewmodel:
             self.setSourceModel(viewmodel)
+    
+    def parent(self, index: QModelIndex):
+        if not index.isValid():
+            return QModelIndex()
+        
+        print(f"Getting parent for index {index.row()}, {index.column()}")
+        return super().parent(index)
 
     def filterAcceptsRow(self, source_row : int, source_parent : QModelIndex):
         if not self.sourceModel():
@@ -27,6 +35,8 @@ class ScenesBatchesModel(QSortFilterProxyModel):
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None
+        
+        print(f"Getting data for index {index.row()}, {index.column()} with role {role}")
 
         source_index = self.mapToSource(index)
         item : ViewModelItem = self.sourceModel().itemFromIndex(source_index)
