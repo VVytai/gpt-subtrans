@@ -13,6 +13,7 @@ class OpenAIReasoningClient(OpenAIClient):
         settings['supports_system_messages'] = True
         settings['supports_conversation'] = True
         settings['supports_reasoning'] = True
+        settings['system_user_role'] = 'developer'
         super().__init__(settings)
 
     @property

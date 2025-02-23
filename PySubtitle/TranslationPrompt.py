@@ -31,6 +31,9 @@ class TranslationPrompt:
         # Flag controlling whether to use the "system" role for retry instructions
         self.supports_system_messages_for_retry = False
 
+        # Role name for the system user
+        self.system_user_role = "system"
+
         # Templates for formatting the prompt - override these to customize the prompt
         self.prompt_template = default_prompt_template
         self.line_template = default_line_template
@@ -53,7 +56,7 @@ class TranslationPrompt:
         self.messages.clear()
 
         user_role = "user"
-        system_role = "system" if self.supports_system_messages else user_role
+        system_role = self.system_user_role if self.supports_system_messages else user_role
 
         self.batch_prompt = self.GenerateBatchPrompt(lines, context=context)
 

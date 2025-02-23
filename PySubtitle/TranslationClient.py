@@ -36,7 +36,14 @@ class TranslationClient:
     @property
     def supports_system_messages_for_retry(self):
         return self.settings.get('supports_system_messages_for_retry', self.supports_system_messages)
+    
+    @property
+    def system_user_role(self):
+        if not self.supports_system_messages:
+            return 'user'
 
+        return self.settings.get('system_user_role', 'system')
+        
     @property
     def prompt_template(self):
         return self.settings.get('prompt_template') or default_prompt_template
@@ -63,6 +70,7 @@ class TranslationClient:
         """
         prompt = TranslationPrompt(user_prompt, self.supports_conversation)
         prompt.supports_system_prompt = self.supports_system_prompt
+        prompt.system_user_role = self.system_user_role
         prompt.supports_system_messages = self.supports_conversation and self.supports_system_messages
         prompt.supports_system_messages_for_retry = self.supports_system_messages_for_retry
         prompt.prompt_template = self.prompt_template
