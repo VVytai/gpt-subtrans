@@ -61,6 +61,10 @@ class Translation:
     @property
     def finish_reason(self):
         return self.content.get('finish_reason')
+    
+    @property
+    def refusal(self):
+        return self.content.get('refusal')
 
     @property
     def response_time(self):
@@ -77,6 +81,10 @@ class Translation:
     @property
     def full_text(self):
         return self.content.get('text', self._text)
+    
+    @refusal.setter
+    def refusal(self, refusal):
+        self.content['refusal'] = refusal
 
     def PerformSubstitutions(self, substitutions : Substitutions):
         """

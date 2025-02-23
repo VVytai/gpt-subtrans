@@ -45,6 +45,12 @@ class TranslationResponseError(TranslationError):
         super().__init__(message)
         self.response = response
 
+class TranslationRefusedError(TranslationError):
+    def __init__(self, message, refusal, result):
+        super().__init__(message)
+        self.refusal = refusal
+        self.result = result
+
 class NoTranslationError(TranslationError):
     def __init__(self, message, translation = None):
         super().__init__(message=message, translation=translation)

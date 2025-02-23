@@ -3,7 +3,7 @@ import logging
 import time
 
 from PySubtitle.Helpers.Parse import ParseDelayFromHeader
-from PySubtitle.SubtitleError import TranslationResponseError
+from PySubtitle.SubtitleError import TranslationRefusedError, TranslationResponseError
 
 try:
     import openai
@@ -59,9 +59,15 @@ try:
             # If we're using a new client for each request, create it here
             temperature = temperature or self.temperature
 
-            response = self._try_send_messages(prompt, temperature)
+            try:
+                result = self._try_send_messages(prompt, temperature)
 
-            translation = Translation(response) if response else None
+                translation = Translation(result) if result else None
+
+            except TranslationRefusedError as e:
+                logging.warning(f"Model refused to translate: {str(e.refusal)}")
+                translation = Translation(e.result)
+                translation.refusal = e.refusal
 
             if translation:
                 if translation.quota_reached:
@@ -102,6 +108,10 @@ try:
                         logging.warning(f"{str(e)}, retrying in {backoff_time} seconds...")
                         time.sleep(backoff_time)
                         continue
+
+                except TranslationRefusedError as e:
+                    if not self.aborted:
+                        raise e
 
                 except openai.RateLimitError as e:
                     if not self.aborted:

@@ -1,7 +1,7 @@
 from openai.types.chat import ChatCompletion
 
 from PySubtitle.Providers.OpenAI.OpenAIClient import OpenAIClient
-from PySubtitle.SubtitleError import TranslationResponseError
+from PySubtitle.SubtitleError import TranslationRefusedError, TranslationResponseError
 
 linesep = '\n'
 
@@ -24,9 +24,9 @@ class OpenAIReasoningClient(OpenAIClient):
         """
         Make a request to an OpenAI-compatible API to provide a translation
         """
-        response = {}
+        result = {}
 
-        result : ChatCompletion = self.client.chat.completions.create(
+        completion : ChatCompletion = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
             reasoning_effort=self.reasoning_effort
@@ -35,32 +35,38 @@ class OpenAIReasoningClient(OpenAIClient):
         if self.aborted:
             return None
 
-        if not isinstance(result, ChatCompletion):
-            raise TranslationResponseError(f"Unexpected response type: {type(result).__name__}", response=result)
+        if not isinstance(completion, ChatCompletion):
+            raise TranslationResponseError(f"Unexpected response type: {type(completion).__name__}", response=completion)
 
-        if not getattr(result, 'choices'):
-            raise TranslationResponseError("No choices returned in the response", response=result)
+        if not getattr(completion, 'choices'):
+            raise TranslationResponseError("No choices returned in the response", response=completion)
 
-        response['response_time'] = getattr(result, 'response_ms', 0)
+        result['response_time'] = getattr(completion, 'response_ms', 0)
 
-        if result.usage:
-            response['prompt_tokens'] = getattr(result.usage, 'prompt_tokens')
-            response['output_tokens'] = getattr(result.usage, 'completion_tokens')
-            response['total_tokens'] = getattr(result.usage, 'total_tokens')
-            completion_tokens_details = getattr(result.usage, 'completion_tokens_details')
+        if completion.usage:
+            result['prompt_tokens'] = getattr(completion.usage, 'prompt_tokens')
+            result['output_tokens'] = getattr(completion.usage, 'completion_tokens')
+            result['total_tokens'] = getattr(completion.usage, 'total_tokens')
+            completion_tokens_details = getattr(completion.usage, 'completion_tokens_details')
             if completion_tokens_details:
-                response["reasoning_tokens"] = getattr(completion_tokens_details, 'reasoning_tokens')
-                response["accepted_prediction_tokens"] = getattr(completion_tokens_details, 'accepted_prediction_tokens')
-                response["rejected_prediction_tokens"] = getattr(completion_tokens_details, 'rejected_prediction_tokens')
+                result["reasoning_tokens"] = getattr(completion_tokens_details, 'reasoning_tokens')
+                result["accepted_prediction_tokens"] = getattr(completion_tokens_details, 'accepted_prediction_tokens')
+                result["rejected_prediction_tokens"] = getattr(completion_tokens_details, 'rejected_prediction_tokens')
 
-        if result.choices:
-            choice = result.choices[0]
-            reply = result.choices[0].message
+        if not completion.choices:
+            raise TranslationResponseError("No choices returned in the response", response=completion)
 
-            response['finish_reason'] = getattr(choice, 'finish_reason', None)
-            response['text'] = getattr(reply, 'content', None)
-        else:
-            raise TranslationResponseError("No choices returned in the response", response=result)
+        choices = [choice for choice in completion.choices if choice.message and not choice.message.refusal]
+        result['refusals'] = [choice.message.refusal for choice in completion.choices if choice.message and choice.message.refusal]
 
-        # Return the response if the API call succeeds
-        return response
+        if not choices:
+            refusals = [choice.message.refusal for choice in completion.choices if choice.message and choice.message.refusal]
+            raise TranslationRefusedError("Model refused to complete the request", refusal=refusals, result=result)
+
+        choice = choices[0]
+        reply = choice.message
+
+        result['finish_reason'] = getattr(choice, 'finish_reason', None)
+        result['text'] = getattr(reply, 'content', None)
+
+        return result
